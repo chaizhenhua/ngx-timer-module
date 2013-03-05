@@ -1,63 +1,28 @@
-#include <stdio.h>
+
+#include <ngx_core.h>
 #include <ngx_heap.h>
-#include <assert.h>
-#define PARENT(x)  (x >> 1)
-#define CHILD(x)   (x << 1)
-#define ROOT       1
+
+#define NGX_HEAP_DEGREE     2
+
+#define NGX_HEAP_PARENT(c)  ((c) >> 1)
+#define NGX_HEAP_CHILD(p)   ((p) << 1)
+
+#define NGX_HEAP_ARRAY_MIN_FAST                ngx_heap_array_min_fast
+#define NGX_HEAP_ARRAY_MIN_SLOW(heap, child0)  child0
 
 
-
-/* percolate up */
-void
-ngx_heap_up (ngx_heap_t *heap, ngx_heap_node_t *node)
+static inline ngx_uint_t
+ngx_heap_array_min_fast(ngx_heap_t *heap, ngx_uint_t child0)
 {
-    int index, par;
-    ngx_heap_node_t **array = heap->array;
 
-    for (index = node->index, par = PARENT(index);
-            index > 1 && ngx_heap_less(node,array[par]);
-            index = par, par = PARENT(index))
-    {
-        array[index] = array [par];
-        array[index]->index = index;
+    if (NGX_HEAP_CMP(heap->array[child0],
+                     heap->array[child0 + 1])) {
+        return child0;
     }
-
-    array [index] = node;
-    node->index = index;
+    return child0 + 1;
 }
 
-/* percolate down */
-void
-ngx_heap_down (ngx_heap_t *heap, ngx_heap_node_t *node)
-{
-    ngx_uint_t index, child;
-    ngx_heap_node_t **array = heap->array;
+#define NGX_HEAP_PREFIX     ngx_heap
+#include <ngx_heap_template.h>
 
-    for (index = node->index; CHILD(index) + 1 <= heap->last; index = child) {
-        child = CHILD(index);
-        /* find min child */
-        if (ngx_heap_less(array[child + 1], array[child]) ) {
-            child ++;
-        }
-
-        if (ngx_heap_less(array[child], node) ) {
-            array[index] = array[child];
-            array[index]->index = index;
-        } else {
-            break;
-        }
-    }
-
-    /* last child */
-    child = CHILD(index);
-
-    if (child == heap->last && ngx_heap_less(array[child], node) ) {
-        array[index] = array[child];
-        array[index]->index = index;
-        index = child;
-    }
-
-    array[index] = node;
-    node->index = index;
-}
 

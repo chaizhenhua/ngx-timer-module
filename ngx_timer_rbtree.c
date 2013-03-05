@@ -1,74 +1,36 @@
 
-#include <ngx_timer_module.h>
 
-static ngx_str_t      timer_rbtree_name = ngx_string("rbtree");
-static ngx_int_t ngx_timer_rbtree_init(ngx_cycle_t *cycle);
-static void ngx_timer_rbtree_done(ngx_cycle_t *cycle);
-static void ngx_timer_rbtree_process_expired(void);
-static void ngx_timer_rbtree_add(ngx_event_t *ev, ngx_msec_t timer);
-static void ngx_timer_rbtree_del(ngx_event_t *ev);
-static ngx_int_t ngx_timer_rbtree_empty(void);
-#define ngx_timer_rbtree_expire_time ngx_event_find_timer
+#include <ngx_event.h>
 
-ngx_timer_module_t  ngx_timer_rbtree_module_ctx = {
-    &timer_rbtree_name,
-    NULL,                 /* create configuration */
-    NULL,                 /* init configuration */
+static ngx_thread_volatile ngx_rbtree_t  ngx_timer_rbtree;
+static ngx_rbtree_node_t                 ngx_timer_rbtree_sentinel;
 
-    {
-        ngx_timer_rbtree_add,
-        ngx_timer_rbtree_del,
-        ngx_timer_rbtree_empty,
-        ngx_timer_rbtree_expire_time,
-        ngx_timer_rbtree_process_expired,
-        ngx_timer_rbtree_init,
-        ngx_timer_rbtree_done,
-    }
+static inline ngx_int_t
+ngx_timer_rbtree_tree_init(ngx_cycle_t *cycle)
+{
+    ngx_rbtree_init(&ngx_timer_rbtree, &ngx_timer_rbtree_sentinel, ngx_rbtree_insert_timer_value);
+    return NGX_OK;
+}
+
+#define NGX_TREE_INIT               ngx_timer_rbtree_tree_init
+#define NGX_TREE_DELETE(timer)      ngx_rbtree_delete(&ngx_timer_rbtree, (ngx_rbtree_node_t *)timer)
+#define NGX_TREE_INSERT(timer)      ngx_rbtree_insert(&ngx_timer_rbtree, (ngx_rbtree_node_t *)timer)
+#define NGX_TREE_MIN()              ngx_rbtree_min(ngx_timer_rbtree.root, ngx_timer_rbtree.sentinel)
+#define NGX_TREE_EMPTY()           (ngx_timer_rbtree.root == &ngx_timer_rbtree_sentinel)
+
+#define NGX_TIMER_TREE_PREFIX       ngx_timer_rbtree
+#include <ngx_timer_tree_template.h>
+
+ngx_timer_actions_t  ngx_timer_rbtree_actions = {
+    ngx_string("rbtree"),
+
+    NGX_TIMER_TREE_ADD,
+    NGX_TIMER_TREE_DEL,
+    NGX_TIMER_TREE_EMPTY,
+
+    NGX_TIMER_TREE_FIND_MIN,
+    NGX_TIMER_TREE_EXPIRE_TIMERS,
+
+    NGX_TIMER_TREE_INIT,
 };
 
-ngx_module_t  ngx_timer_rbtree_module = {
-    NGX_MODULE_V1,
-    &ngx_timer_rbtree_module_ctx,        /* module context */
-    NULL,                                /* module directives */
-    NGX_TIMER_MODULE,                    /* module type */
-    NULL,                                /* init master */
-    NULL,                                /* init module */
-    NULL,                                /* init process */
-    NULL,                                /* init thread */
-    NULL,                                /* exit thread */
-    NULL,                                /* exit process */
-    NULL,                                /* exit master */
-    NGX_MODULE_V1_PADDING
-};
-
-static ngx_int_t
-ngx_timer_rbtree_init(ngx_cycle_t *cycle)
-{
-    return ngx_event_timer_init(cycle->log);
-}
-
-static ngx_int_t
-ngx_timer_rbtree_empty()
-{
-    return ngx_event_timer_rbtree.root == ngx_event_timer_rbtree.sentinel;
-}
-
-static void
-ngx_timer_rbtree_done(ngx_cycle_t *cycle)
-{
-
-}
-
-static void
-ngx_timer_rbtree_process_expired(void) {
-    ngx_event_expire_timers();
-}
-
-static void
-ngx_timer_rbtree_add(ngx_event_t *ev, ngx_msec_t timer) {
-    ngx_event_add_timer(ev, timer);
-}
-static void
-ngx_timer_rbtree_del(ngx_event_t *ev) {
-    ngx_event_del_timer(ev);
-}

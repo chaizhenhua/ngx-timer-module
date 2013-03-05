@@ -1,11 +1,20 @@
+
+/*
+ * the heap is not miniman heap or maximum heap, only used for timer.
+ */
+
 #ifndef _NGX_HEAP_INCLUDE_
 #define _NGX_HEAP_INCLUDE_
-#include <ngx_timer_module.h>
+
+#include <ngx_core.h>
+
 typedef ngx_uint_t  ngx_heap_key_t;
 
-#define ngx_heap_key_less(k1, k2) ngx_timer_before(k1,k2)
-#define ngx_heap_less(n1, n2)     ngx_heap_key_less((n1)->key, (n2)->key)
-#define ngx_heap_greater(n1, n2) (!ngx_heap_less(n1, n2))
+#define NGX_HEAP_ROOT           1
+/* same as ngx_timer_before */
+#define NGX_HEAP_CMP_KEY(x, y)  ((ngx_int_t) (x - y) < 0)
+#define NGX_HEAP_CMP(n1, n2)    NGX_HEAP_CMP_KEY((n1)->key, (n2)->key )
+
 
 typedef struct ngx_heap_node_s {
     ngx_heap_key_t   key;
@@ -19,13 +28,10 @@ typedef struct ngx_heap_s {
     ngx_uint_t        max;
 } ngx_heap_t;
 
-void ngx_heap_up (ngx_heap_t *heap, ngx_heap_node_t *node);
-void ngx_heap_down (ngx_heap_t *heap, ngx_heap_node_t *node);
-
 static inline ngx_int_t
 ngx_heap_init(ngx_heap_t *heap, ngx_pool_t *pool, ngx_uint_t max_size)
 {
-    heap->array = ngx_palloc(pool, max_size * sizeof(ngx_heap_node_t *));
+    heap->array = ngx_palloc(pool, (max_size + NGX_HEAP_ROOT) * sizeof(ngx_heap_node_t *));
     if (heap->array == NULL) {
         return NGX_ERROR;
     }
@@ -37,49 +43,36 @@ ngx_heap_init(ngx_heap_t *heap, ngx_pool_t *pool, ngx_uint_t max_size)
 static inline ngx_heap_node_t *
 ngx_heap_min(ngx_heap_t *heap)
 {
-    if (heap->last == 0) {
-        return NULL;
+    if (heap->last) {
+        return heap->array[NGX_HEAP_ROOT];
     }
-    return heap->array[1];
+    return NULL;
 }
 
-static inline void
-ngx_heap_insert(ngx_heap_t *heap, ngx_heap_node_t *node)
+static inline ngx_int_t
+ngx_heap_empty(ngx_heap_t *heap)
 {
-    heap->last++;
-    /* TODO ASSERT(heap->last < heap->max) */
-    heap->array[heap->last] = node;
-    node->index = heap->last;
-    ngx_heap_up(heap, node);
+    return heap->last == 0;
 }
 
-static inline void
-ngx_heap_delete(ngx_heap_t *heap, ngx_heap_node_t *node)
-{
-    ngx_uint_t index = node->index;
+void ngx_heap_insert(ngx_heap_t *heap, ngx_heap_node_t *node);
+void ngx_heap_delete(ngx_heap_t *heap, ngx_heap_node_t *node);
+void ngx_heap_adjust(ngx_heap_t *heap, ngx_heap_node_t *node);
 
-    heap->last --;
+/*
+ * quad heap
+ */
 
-    if (index < heap->last + 1) {
-        heap->array[index] = heap->array[heap->last + 1];
-        heap->array[index]->index = index;
-        ngx_heap_down(heap, heap->array[index]);
-    }
-}
+typedef ngx_heap_t      ngx_heap4_t;
+typedef ngx_heap_node_t ngx_heap4_node_t;
 
-static inline void
-ngx_heap_reset_key(ngx_heap_t *heap, ngx_heap_node_t *node, ngx_heap_key_t key)
-{
-    if (ngx_heap_key_less(node->key, key)) {
-        /* increase key */
-        node->key = key;
-        ngx_heap_down(heap, node);
-    } else {
-        /* descrease key */
-        node->key = key;
-        ngx_heap_up(heap, node);
-    }
-}
+#define ngx_heap4_init      ngx_heap_init
+#define ngx_heap4_min       ngx_heap_min
+#define ngx_heap4_empty     ngx_heap_empty
+
+void ngx_heap4_insert(ngx_heap_t *heap, ngx_heap_node_t *node);
+void ngx_heap4_delete(ngx_heap_t *heap, ngx_heap_node_t *node);
+void ngx_heap4_adjust(ngx_heap_t *heap, ngx_heap_node_t *node);
 
 
 #endif /* _NGX_HEAP_INCLUDE_ */

@@ -6,7 +6,7 @@ diff -uNr nginx-1.2.6/src/event/ngx_event.c nginx/src/event/ngx_event.c
  
      } else {
 -        timer = ngx_event_find_timer();
-+        timer = ngx_timer_expire_time();
++        timer = ngx_timer_find_min();
          flags = NGX_UPDATE_TIME;
  
  #if (NGX_THREADS)
@@ -15,7 +15,7 @@ diff -uNr nginx-1.2.6/src/event/ngx_event.c nginx/src/event/ngx_event.c
  
      if (delta) {
 -        ngx_event_expire_timers();
-+        ngx_timer_process_expired();
++        ngx_timer_expire_timers();
      }
  
      ngx_log_debug1(NGX_LOG_DEBUG_EVENT, cycle->log, 0,
